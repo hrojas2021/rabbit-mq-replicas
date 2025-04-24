@@ -1,0 +1,96 @@
+version: "3.8"
+
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    networks:
+      - app-network
+
+  publisher:
+    build:
+      context: .
+      dockerfile: Dockerfile.publisher
+    ports:
+      - "8080:8080"
+    depends_on:
+      - rabbitmq
+    networks:
+      - app-network
+
+  worker1:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    environment:
+      - WORKER_ID=worker-1
+    volumes:
+      - shared-logs:/shared/logs
+    depends_on:
+      - rabbitmq
+    networks:
+      - app-network
+
+  worker2:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    environment:
+      - WORKER_ID=worker-2
+    volumes:
+      - shared-logs:/shared/logs
+    depends_on:
+      - rabbitmq
+    networks:
+      - app-network
+
+  worker3:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    environment:
+      - WORKER_ID=worker-3
+    volumes:
+      - shared-logs:/shared/logs
+    depends_on:
+      - rabbitmq
+    networks:
+      - app-network
+
+  notifier1:
+    build:
+      context: .
+      dockerfile: Dockerfile.notifier
+    environment:
+      - NOTIFIER_ID=notifier-1
+    volumes:
+      - shared-logs:/shared/logs
+    depends_on:
+      - rabbitmq
+    networks:
+      - app-network
+
+  notifier2:
+    build:
+      context: .
+      dockerfile: Dockerfile.notifier
+    environment:
+      - NOTIFIER_ID=notifier-2
+    volumes:
+      - shared-logs:/shared/logs
+    depends_on:
+      - rabbitmq
+    networks:
+      - app-network
+
+volumes:
+  shared-logs:
+  rabbitmq-data:
+
+networks:
+  app-network:
+    driver: bridge
