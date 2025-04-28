@@ -54,9 +54,9 @@ func main() {
 	)
 	failOnError(err, "Failed to declare a queue")
 	err = ch.Qos(
-		1,     // prefetch count, este valor asegura que cada worker reciba sólo un mensaje a la vez
-		0,     // prefetch size (en este caso no lo estamos usando)
-		false, // global (indica si el QoS es global o solo para el consumidor)
+		1,     // prefetch count, this ensure each worker receives only 1 message at a time
+		0,     // prefetchSize
+		false, // global notes if QoS is global or just for the consumer
 	)
 	failOnError(err, "Failed to set QoS")
 
@@ -86,7 +86,20 @@ func main() {
 			if workerID == "" {
 				workerID = "unknown-worker"
 			}
-			entry := fmt.Sprintf("[%s] [%s] Received message: %s\n", now, workerID, msg.Body)
+
+			if workerID == "worker-3" {
+				entry := fmt.Sprintf("[%s]HAS BROKEN REPLICA NO ACK message: %s\n", workerID, msg.Body)
+				f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+				if err == nil {
+					f.WriteString(entry)
+					f.Close()
+				}
+				panic("ERROR")
+				ch.Close() // we need to close the connection/channel
+				return     // close with no ACK
+			}
+
+			entry := fmt.Sprintf("[%s] [%s]   Received message: %s\n", now, workerID, msg.Body)
 
 			f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 			if err == nil {
