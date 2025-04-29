@@ -98,11 +98,11 @@ func main() {
 				workerID = "unknown-worker"
 			}
 
-			if workerID == "worker-2" { // NACK message with this worker
+			if workerID == "worker-2" {
 				log.Println("Failed to write to consume this message:", err)
-				d.Nack(false, true) // simulate a DB and nack the message
-				break               // break the endless loop and the go routine
-				// The defer will close the remaining work
+				d.Nack(false, true) // simulate a DB error and nack the message
+				break               // break the endless loop and  goroutine
+				// The defer will close the remaining open resources
 			}
 
 			if workerID == "worker-3" {
