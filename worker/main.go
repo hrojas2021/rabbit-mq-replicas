@@ -42,7 +42,13 @@ func main() {
 
 	ch, err := conn.Channel()
 	failOnError(err, "Failed to open a channel")
-	defer ch.Close()
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("##### A panic is detected: #####", r)
+		}
+		ch.Close()
+		fmt.Println("##### Closing the app:#####")
+	}()
 
 	q, err := ch.QueueDeclare(
 		"demo_queue",
@@ -80,23 +86,33 @@ func main() {
 	go func() {
 		for d := range msgs {
 			var msg Message
-			json.Unmarshal(d.Body, &msg)
+
+			err = json.Unmarshal(d.Body, &msg)
+			if err != nil {
+				log.Println("Error reading the message:", err)
+				d.Nack(false, true) // NACK message
+			}
 			now := time.Now().Format(time.RFC3339)
 			workerID := os.Getenv("WORKER_ID")
 			if workerID == "" {
 				workerID = "unknown-worker"
 			}
 
+			if workerID == "worker-2" { // NACK message with this worker
+				log.Println("Failed to write to consume this message:", err)
+				d.Nack(false, true) // simulate a DB and nack the message
+				break               // break the endless loop and the go routine
+				// The defer will close the remaining work
+			}
+
 			if workerID == "worker-3" {
-				entry := fmt.Sprintf("[%s]HAS BROKEN REPLICA NO ACK message: %s\n", workerID, msg.Body)
+				entry := fmt.Sprintf("#### [%s]HAS BROKEN REPLICA NO ACK message: ####%s\n", workerID, msg.Body)
 				f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 				if err == nil {
 					f.WriteString(entry)
 					f.Close()
 				}
 				panic("ERROR")
-				ch.Close() // we need to close the connection/channel
-				return     // close with no ACK
 			}
 
 			entry := fmt.Sprintf("[%s] [%s]   Received message: %s\n", now, workerID, msg.Body)
@@ -114,4 +130,5 @@ func main() {
 
 	log.Println("Worker started. Waiting for messages.")
 	<-forever
+	log.Println("Worker finished. Closing.")
 }
